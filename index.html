@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ПЕРЕКУП — симулятор автоперекупщика</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14171c">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0b0d;
+  --phone:#15181d;
+  --screen:#1a1e24;
+  --surface:#20252d;
+  --surface2:#282e38;
+  --border:#333a45;
+  --accent:#c97a3d;
+  --accent2:#e0a868;
+  --accent-dim:#5a4028;
+  --pos:#4caf6d;
+  --neg:#e0605a;
+  --text:#edeae3;
+  --text-dim:#8b93a0;
+  --text-dim2:#5f6773;
+  --radius:16px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;background:var(--bg);}
+body{
+  font-family:'Inter',sans-serif;
+  color:var(--text);
+  display:flex; align-items:center; justify-content:center;
+  min-height:100vh;
+  background:
+    radial-gradient(circle at 30% 15%, #2a1f16 0%, transparent 45%),
+    radial-gradient(circle at 80% 85%, #16202a 0%, transparent 50%),
+    var(--bg);
+  padding:18px 0;
+}
+.mono{font-family:'JetBrains Mono',monospace;}
+.disp{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.03em;}
+
+/* ---------- Phone shell ---------- */
+#phone{
+  width:min(390px, 94vw);
+  height:min(800px, 94vh);
+  background:var(--phone);
+  border-radius:42px;
+  padding:12px;
+  box-shadow:0 0 0 2px #000, 0 25px 60px rgba(0,0,0,.6), inset 0 0 0 1px #2a2e35;
+  display:flex; flex-direction:column;
+  position:relative;
+}
+#notch{
+  position:absolute; top:12px; left:50%; transform:translateX(-50%);
+  width:120px; height:22px; background:#000; border-radius:14px; z-index:50;
+}
+#screen{
+  flex:1; background:var(--screen); border-radius:30px; overflow:hidden;
+  display:flex; flex-direction:column; position:relative;
+}
+#statusbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 26px 6px; font-size:13px; font-weight:600; flex-shrink:0;
+  color:var(--text); z-index:20; position:relative;
+}
+#statusbar .icons{display:flex; gap:5px; align-items:center; font-size:12px;}
+#content{ flex:1; overflow-y:auto; position:relative; -webkit-overflow-scrolling:touch;}
+#content::-webkit-scrollbar{width:0;}
+#homebar{
+  flex-shrink:0; display:flex; align-items:center; justify-content:center; padding:8px 0 4px;
+}
+#homebar .pill{width:120px; height:5px; background:#565d68; border-radius:3px; cursor:pointer;}
+
+/* ---------- Home screen ---------- */
+.home-wrap{
+  height:100%; padding:10px 22px 20px; display:flex; flex-direction:column;
+  background:
+    radial-gradient(ellipse at 50% 0%, #3a2c1c 0%, transparent 60%),
+    linear-gradient(180deg,#1c2027 0%, #14171c 60%, #101318 100%);
+}
+.clock-widget{ text-align:center; margin:18px 0 30px; }
+.clock-widget .time{ font-family:'Oswald',sans-serif; font-size:58px; font-weight:600; line-height:1; letter-spacing:.02em;}
+.clock-widget .date{ color:var(--text-dim); font-size:13px; margin-top:6px;}
+.balance-widget{
+  background:linear-gradient(135deg,var(--surface),var(--surface2));
+  border:1px solid var(--border); border-radius:18px; padding:14px 18px; margin-bottom:26px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.balance-widget .lbl{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em;}
+.balance-widget .val{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:19px; color:var(--accent2); margin-top:2px;}
+.app-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:20px 14px; }
+.app-icon{ display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; user-select:none;}
+.app-icon .badge{
+  width:60px; height:60px; border-radius:16px; display:flex; align-items:center; justify-content:center;
+  font-size:28px; box-shadow:0 4px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.app-icon .lbl{font-size:11px; color:var(--text); text-align:center; font-weight:500;}
+.app-icon:active .badge{ transform:scale(.93); }
+.badge.b1{background:linear-gradient(145deg,#3d6b4f,#2b4d38);}
+.badge.b2{background:linear-gradient(145deg,#5a4028,#3a2a1a);}
+.badge.b3{background:linear-gradient(145deg,#2f5a6b,#1f3d48);}
+.badge.b4{background:linear-gradient(145deg,#4a4f5a,#33373f);}
+
+/* ---------- App header ---------- */
+.app{ height:100%; display:flex; flex-direction:column; background:var(--screen);}
+.app-header{
+  display:flex; align-items:center; gap:10px; padding:8px 16px 14px; flex-shrink:0;
+  border-bottom:1px solid var(--border); background:var(--screen); position:sticky; top:0; z-index:5;
+}
+.back-btn{
+  width:32px;height:32px;border-radius:10px;background:var(--surface);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;flex-shrink:0;color:var(--text);
+}
+.app-title{font-family:'Oswald',sans-serif; font-size:19px; font-weight:600;}
+.app-sub{font-size:11px; color:var(--text-dim); margin-top:-2px;}
+.app-body{flex:1; overflow-y:auto; padding:14px 16px 24px;}
+.tabbar{display:flex; gap:6px; padding:10px 16px 0; flex-shrink:0;}
+.tab{flex:1; text-align:center; padding:9px 0; font-size:12.5px; font-weight:600; border-radius:10px; cursor:pointer; color:var(--text-dim); background:var(--surface); border:1px solid var(--border);}
+.tab.active{ color:#fff; background:var(--accent-dim); border-color:var(--accent); color:var(--accent2);}
+
+/* ---------- Market listing card ---------- */
+.car-card{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:13px 14px; margin-bottom:12px; display:flex; gap:12px; cursor:pointer; position:relative;
+}
+.car-thumb{
+  width:56px;height:56px;border-radius:12px; flex-shrink:0; display:flex;align-items:center;justify-content:center;font-size:26px;
+}
+.car-info{flex:1; min-width:0;}
+.car-name{font-weight:700; font-size:14.5px;}
+.car-meta{font-size:11.5px; color:var(--text-dim); margin-top:2px;}
+.car-cond{display:inline-block; font-size:10px; padding:2px 7px; border-radius:6px; margin-top:6px; font-weight:600;}
+.cond-1{background:#4a2323;color:#ff9c94;} .cond-2{background:#4a3a23;color:#ffc27a;}
+.cond-3{background:#3a4a23;color:#d3e07a;} .cond-4{background:#234a2f;color:#8bef9f;}
+.cond-5{background:#1f4a3a;color:#6ff0c8;}
+.price-tag{
+  font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; color:#2a1f14;
+  background:var(--accent2); padding:5px 9px 5px 12px; border-radius:3px 10px 10px 3px;
+  position:absolute; top:10px; right:-4px; transform:rotate(2deg);
+  box-shadow:0 3px 6px rgba(0,0,0,.3);
+}
+.price-tag::before{
+  content:''; position:absolute; left:4px; top:50%; transform:translateY(-50%);
+  width:5px;height:5px;border-radius:50%; background:var(--screen);
+}
+.empty-state{ text-align:center; padding:50px 20px; color:var(--text-dim);}
+.empty-state .em{font-size:40px; margin-bottom:12px;}
+.refresh-btn{
+  width:100%; padding:12px; border-radius:12px; background:var(--surface); border:1px dashed var(--border);
+  color:var(--text-dim); font-size:12.5px; font-weight:600; text-align:center; cursor:pointer; margin-top:6px;
+}
+
+/* ---------- Detail / chat ---------- */
+.detail-hero{ display:flex; gap:14px; align-items:center; margin-bottom:14px;}
+.detail-thumb{width:74px;height:74px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0;}
+.detail-name{font-family:'Oswald',sans-serif; font-size:19px; font-weight:600;}
+.detail-meta{font-size:12px; color:var(--text-dim); margin-top:3px; line-height:1.5;}
+.stat-row{display:flex; gap:8px; margin-bottom:14px;}
+.stat-box{flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 12px;}
+.stat-box .l{font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em;}
+.stat-box .v{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; margin-top:3px;}
+.stat-box .v.acc{color:var(--accent2);}
+.stat-box .v.pos{color:var(--pos);}
+
+.chat-box{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; height:260px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px;}
+.msg{max-width:78%; padding:8px 12px; border-radius:14px; font-size:13px; line-height:1.4;}
+.msg.them{ align-self:flex-start; background:var(--surface2); border-bottom-left-radius:4px;}
+.msg.me{ align-self:flex-end; background:var(--accent-dim); color:#fbe6cd; border-bottom-right-radius:4px;}
+.msg .who{font-size:9.5px; opacity:.6; margin-bottom:2px; text-transform:uppercase; letter-spacing:.05em;}
+.offer-row{ display:flex; gap:8px; margin-bottom:8px;}
+.offer-row input{
+  flex:1; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 12px;
+  color:var(--text); font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; min-width:0;
+}
+.offer-row input:focus{outline:none; border-color:var(--accent);}
+.btn{
+  padding:11px 16px; border-radius:10px; border:none; font-weight:700; font-size:13px; cursor:pointer;
+  font-family:'Inter',sans-serif; white-space:nowrap;
+}
+.btn-accent{background:var(--accent); color:#1a1206;}
+.btn-ghost{background:var(--surface2); color:var(--text); border:1px solid var(--border);}
+.btn-pos{background:var(--pos); color:#062010;}
+.btn-full{width:100%; padding:13px; text-align:center; margin-top:4px;}
+.quick-offers{display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;}
+.qo{font-size:11px; padding:6px 10px; background:var(--surface2); border-radius:8px; cursor:pointer; color:var(--text-dim); border:1px solid var(--border);}
+.closed-banner{ text-align:center; padding:10px; background:var(--surface); border-radius:10px; color:var(--text-dim); font-size:12.5px; margin-bottom:10px;}
+
+/* ---------- Garage ---------- */
+.garage-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:13px 14px; margin-bottom:12px;}
+.garage-top{display:flex; gap:12px; align-items:center;}
+.garage-actions{display:flex; gap:8px; margin-top:12px;}
+.garage-actions .btn{flex:1; font-size:12px; padding:9px 8px;}
+.listing-note{margin-top:10px; padding:9px 11px; background:var(--surface2); border-radius:10px; font-size:12px; color:var(--accent2);}
+
+/* ---------- Bank ---------- */
+.big-balance{ text-align:center; padding:20px 0 16px;}
+.big-balance .lbl{font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.1em;}
+.big-balance .num{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:38px; color:var(--accent2); margin-top:4px;}
+.io-bars{display:flex; gap:10px; margin-bottom:18px;}
+.io-box{flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px;}
+.io-box .l{font-size:10.5px; color:var(--text-dim); text-transform:uppercase;}
+.io-box .v{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; margin-top:4px;}
+.tx-item{ display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:1px solid var(--border);}
+.tx-item:last-child{border-bottom:none;}
+.tx-left{display:flex; gap:10px; align-items:center;}
+.tx-ic{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center; font-size:15px; flex-shrink:0;}
+.tx-ic.inc{background:#173a24;} .tx-ic.exp{background:#3a1f1c;}
+.tx-title{font-size:12.5px; font-weight:600;}
+.tx-time{font-size:10.5px; color:var(--text-dim2); margin-top:1px;}
+.tx-amt{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px;}
+.tx-amt.inc{color:var(--pos);} .tx-amt.exp{color:var(--neg);}
+.section-lbl{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-dim); margin:18px 0 8px;}
+
+/* settings */
+.set-item{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px; font-size:13px; color:var(--text-dim); line-height:1.5;}
+.danger-btn{background:var(--neg); color:#2a0a08;}
+
+.toast{
+  position:absolute; bottom:70px; left:16px; right:16px; background:var(--accent2); color:#1a1206;
+  padding:12px 14px; border-radius:12px; font-size:13px; font-weight:700; text-align:center;
+  box-shadow:0 8px 20px rgba(0,0,0,.4); z-index:100; animation:toastIn .25s ease;
+}
+@keyframes toastIn{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);}}
+</style>
+</head>
+<body>
+
+<div id="phone">
+  <div id="notch"></div>
+  <div id="screen">
+    <div id="statusbar">
+      <span id="clock-sb" class="mono">9:41</span>
+      <span class="icons">📶 🔋</span>
+    </div>
+    <div id="content"></div>
+  </div>
+  <div id="homebar"><div class="pill" onclick="goHome()"></div></div>
+</div>
+
+<script>
+/* ============ DATA ============ */
+const BRANDS = [
+  {name:'Lada', models:['Vesta','Granta','Niva','2114'], tier:190000},
+  {name:'Chevrolet', models:['Niva','Lacetti','Cruze'], tier:340000},
+  {name:'Renault', models:['Logan','Duster','Sandero'], tier:420000},
+  {name:'Hyundai', models:['Solaris','Creta','Elantra'], tier:530000},
+  {name:'Kia', models:['Rio','Sportage','Ceed'], tier:550000},
+  {name:'Ford', models:['Focus','Mondeo','Kuga'], tier:480000},
+  {name:'Volkswagen', models:['Polo','Golf','Passat'], tier:660000},
+  {name:'Toyota', models:['Corolla','Camry','RAV4'], tier:920000},
+  {name:'BMW', models:['3-series E90','5-series E39','X5'], tier:1250000},
+  {name:'Mercedes-Benz', models:['C-class W203','E-class W211'], tier:1350000},
+];
+const COND_LABEL = {1:'убитая',2:'требует ремонта',3:'средняя',4:'хорошая',5:'отличная'};
+const SELLERS = ['Игорь','Сергей Петрович','Оксана','Дмитрий','Артём','Николай','Вадим','Марина','Руслан','Тимур'];
+const CAR_EMOJI = ['🚗','🚙','🚕'];
+
+/* ============ STATE ============ */
+let state = null;
+let currentScreen = 'home';
+let currentMarketTab = 'buy';
+
+function fmt(n){ return Math.round(n).toLocaleString('ru-RU') + ' ₽'; }
+function randInt(a,b){ return Math.floor(a+Math.random()*(b-a+1)); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function roundTo(n,step){ return Math.round(n/step)*step; }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+function defaultState(){
+  return {
+    cash: 150000,
+    transactions: [],
+    garage: [],
+    market: [],
+    stats: {carsBought:0, carsFlipped:0, totalProfit:0}
+  };
+}
+
+async function loadState(){
+  try{
+    const res = await window.storage.get('perekup-save', false);
+    state = res && res.value ? JSON.parse(res.value) : defaultState();
+  }catch(e){
+    state = defaultState();
+  }
+  ensureMarketFilled();
+  saveState();
+}
+async function saveState(){
+  try{ await window.storage.set('perekup-save', JSON.stringify(state), false); }
+  catch(e){ console.error('save failed', e); }
+}
+
+/* ============ CAR GENERATION ============ */
+function weightedCond(){
+  const r = Math.random();
+  if(r<0.15) return 1; if(r<0.40) return 2; if(r<0.72) return 3; if(r<0.93) return 4; return 5;
+}
+function trueValue(tier, year, cond, km){
+  const yf = Math.max(0.42, Math.min(1.15, 0.45 + (year-2003)/38));
+  const cf = 0.5 + cond*0.13;
+  const kf = Math.max(0.55, Math.min(1.1, 1.2 - km/260000));
+  return roundTo(tier*yf*cf*kf, 500);
+}
+function makeMarketCar(){
+  const b = pick(BRANDS), model = pick(b.models);
+  const year = randInt(2004, 2023);
+  const age = Math.max(1, 2026-year);
+  const km = Math.max(5000, Math.round(age*randInt(8000,17000)));
+  const cond = weightedCond();
+  const tv = trueValue(b.tier, year, cond, km);
+  const asking = roundTo(tv*(1.05+Math.random()*0.30), 500);
+  const minPrice = Math.min(asking-1000, roundTo(tv*(0.72+Math.random()*0.20), 500));
+  return {
+    id:'c'+uid(), brand:b.name, model, year, km, cond, tier:b.tier,
+    asking, minPrice, curAsk: asking, round:0, chat:[], status:'open',
+    seller: pick(SELLERS), emoji: pick(CAR_EMOJI)
+  };
+}
+function ensureMarketFilled(){
+  while(state.market.filter(c=>c.status==='open').length < 6){
+    state.market.push(makeMarketCar());
+  }
+}
+function carTV(car){ return trueValue(car.tier, car.year, car.cond, car.km); }
+
+/* ============ TRANSACTIONS ============ */
+function addTx(type, title, amount){
+  state.transactions.unshift({
+    id:uid(), type, title, amount,
+    time: new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})
+  });
+}
+
+/* ============ NAVIGATION ============ */
+function goHome(){ currentScreen='home'; render(); }
+function openApp(app){ currentScreen=app; render(); }
+function toast(msg){
+  const el = document.createElement('div');
+  el.className='toast'; el.textContent=msg;
+  document.getElementById('screen').appendChild(el);
+  setTimeout(()=>el.remove(), 2200);
+}
+
+/* ============ RENDER ROOT ============ */
+function render(){
+  const c = document.getElementById('content');
+  if(currentScreen==='home') c.innerHTML = renderHome();
+  else if(currentScreen==='market') c.innerHTML = renderMarket();
+  else if(currentScreen==='garage') c.innerHTML = renderGarage();
+  else if(currentScreen==='bank') c.innerHTML = renderBank();
+  else if(currentScreen==='settings') c.innerHTML = renderSettings();
+  else if(currentScreen.startsWith('buycar:')) c.innerHTML = renderBuyDetail(currentScreen.split(':')[1]);
+  else if(currentScreen.startsWith('sellcar:')) c.innerHTML = renderSellDetail(currentScreen.split(':')[1]);
+  c.scrollTop = 0;
+  const cb = document.getElementById('chat-body'); if(cb) cb.scrollTop = cb.scrollHeight;
+}
+
+/* ============ HOME ============ */
+function renderHome(){
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('clock-sb').textContent = timeStr;
+  const dateStr = now.toLocaleDateString('ru-RU',{weekday:'long', day:'numeric', month:'long'});
+  return `
+  <div class="home-wrap">
+    <div class="clock-widget">
+      <div class="time mono">${timeStr}</div>
+      <div class="date">${dateStr}</div>
+    </div>
+    <div class="balance-widget">
+      <div>
+        <div class="lbl">Баланс счёта</div>
+        <div class="val">${fmt(state.cash)}</div>
+      </div>
+      <div style="font-size:26px;">💳</div>
+    </div>
+    <div class="app-grid">
+      <div class="app-icon" onclick="openApp('market')">
+        <div class="badge b1">🚙</div>
+        <div class="lbl">АвтоБарахолка</div>
+      </div>
+      <div class="app-icon" onclick="openApp('garage')">
+        <div class="badge b2">🔧</div>
+        <div class="lbl">Мой гараж</div>
+      </div>
+      <div class="app-icon" onclick="openApp('bank')">
+        <div class="badge b3">🏦</div>
+        <div class="lbl">Банк</div>
+      </div>
+      <div class="app-icon" onclick="openApp('settings')">
+        <div class="badge b4">⚙️</div>
+        <div class="lbl">Настройки</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============ MARKET (BUY) ============ */
+function renderMarket(){
+  ensureMarketFilled();
+  const open = state.market.filter(c=>c.status==='open');
+  let cards = open.map(c=>`
+    <div class="car-card" onclick="openApp('buycar:${c.id}')">
+      <div class="price-tag mono">${fmt(c.curAsk)}</div>
+      <div class="car-thumb" style="background:${badgeColor(c.tier)}">${c.emoji}</div>
+      <div class="car-info">
+        <div class="car-name">${c.brand} ${c.model}</div>
+        <div class="car-meta">${c.year} г. · ${c.km.toLocaleString('ru-RU')} км</div>
+        <span class="car-cond cond-${c.cond}">${COND_LABEL[c.cond]}</span>
+      </div>
+    </div>`).join('');
+  if(!open.length) cards = `<div class="empty-state"><div class="em">🔍</div>Объявлений пока нет.<br>Нажмите «Обновить».</div>`;
+  return `
+  <div class="app">
+    <div class="app-header">
+      <div class="back-btn" onclick="goHome()">←</div>
+      <div><div class="app-title">АвтоБарахолка</div><div class="app-sub">Купить б/у авто у частников</div></div>
+    </div>
+    <div class="app-body">
+      ${cards}
+      <div class="refresh-btn" onclick="refreshMarket()">↻ Обновить объявления</div>
+    </div>
+  </div>`;
+}
+function badgeColor(tier){
+  if(tier < 350000) return 'linear-gradient(145deg,#3a3f47,#282c33)';
+  if(tier < 700000) return 'linear-gradient(145deg,#2f5a6b,#1f3d48)';
+  return 'linear-gradient(145deg,#5a4028,#3a2a1a)';
+}
+function refreshMarket(){
+  state.market = state.market.filter(c=>c.status!=='open');
+  ensureMarketFilled();
+  saveState(); render();
+}
+
+function findMarketCar(id){ return state.market.find(c=>c.id===id); }
+
+function renderBuyDetail(id){
+  const car = findMarketCar(id);
+  if(!car){ return `<div class="app"><div class="app-header"><div class="back-btn" onclick="openApp('market')">←</div><div class="app-title">Объявление</div></div><div class="app-body"><div class="empty-state"><div class="em">😕</div>Это объявление уже неактуально.</div></div></div>`; }
+  const closed = car.status !== 'open';
+  const chatMsgs = car.chat.map(m=>`
+    <div class="msg ${m.from==='me'?'me':'them'}">
+      <div class="who">${m.from==='me'?'Вы':car.seller}</div>${m.text}
+    </div>`).join('') || `<div class="msg them"><div class="who">${car.seller}</div>Здравствуйте! Машина в продаже, цена ${fmt(car.asking)}, но готов обсудить.</div>`;
+  return `
+  <div class="app">
+    <div class="app-header">
+      <div class="back-btn" onclick="openApp('market')">←</div>
+      <div><div class="app-title">${car.brand} ${car.model}</div><div class="app-sub">Продавец: ${car.seller}</div></div>
+    </div>
+    <div class="app-body">
+      <div class="detail-hero">
+        <div class="detail-thumb" style="background:${badgeColor(car.tier)}">${car.emoji}</div>
+        <div>
+          <div class="detail-name">${car.brand} ${car.model}, ${car.year}</div>
+          <div class="detail-meta">${car.km.toLocaleString('ru-RU')} км · <span class="car-cond cond-${car.cond}">${COND_LABEL[car.cond]}</span></div>
+        </div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="l">Просят</div><div class="v acc mono">${fmt(car.curAsk)}</div></div>
+        <div class="stat-box"><div class="l">Ваш баланс</div><div class="v mono">${fmt(state.cash)}</div></div>
+      </div>
+      ${closed ? `<div class="closed-banner">${car.status==='left' ? '❌ Продавец передумал общаться — цена была слишком низкой.' : '✅ Сделка закрыта.'}</div>` : ''}
+      <div class="chat-box" id="chat-body">${chatMsgs}</div>
+      ${!closed ? `
+      <div class="quick-offers">
+        <div class="qo" onclick="quickOffer('${car.id}',0.7)">−30%</div>
+        <div class="qo" onclick="quickOffer('${car.id}',0.85)">−15%</div>
+        <div class="qo" onclick="quickOffer('${car.id}',1)">По цене продавца</div>
+      </div>
+      <div class="offer-row">
+        <input type="number" id="offer-input" placeholder="Ваша цена, ₽">
+        <button class="btn btn-accent" onclick="sendOffer('${car.id}')">Отправить</button>
+      </div>` : `<button class="btn btn-ghost btn-full" onclick="openApp('market')">К объявлениям</button>`}
+    </div>
+  </div>`;
+}
+function quickOffer(id, mult){
+  const car = findMarketCar(id);
+  document.getElementById('offer-input').value = roundTo(car.curAsk*mult, 500);
+}
+function sendOffer(id){
+  const car = findMarketCar(id);
+  const input = document.getElementById('offer-input');
+  const offer = Number(input.value);
+  if(!offer || offer<=0){ toast('Введите сумму предложения'); return; }
+  car.chat.push({from:'me', text:`Предлагаю ${fmt(offer)}`});
+  car.round++;
+  if(offer >= car.curAsk){
+    car.chat.push({from:'them', text:`Договорились, забирайте за ${fmt(car.curAsk)}!`});
+    finalizePurchase(car, car.curAsk);
+  } else if(offer >= car.minPrice){
+    const chance = 0.55 + (offer-car.minPrice)/Math.max(1,car.curAsk-car.minPrice)*0.45;
+    if(Math.random() < chance){
+      car.chat.push({from:'them', text:`Ладно, по рукам за ${fmt(offer)}.`});
+      finalizePurchase(car, offer);
+    } else {
+      car.curAsk = Math.max(roundTo((offer+car.curAsk)/2,500), car.minPrice);
+      car.chat.push({from:'them', text:`Давайте сойдёмся на ${fmt(car.curAsk)}?`});
+    }
+  } else if(offer < car.minPrice*0.8){
+    car.chat.push({from:'them', text:'Это несерьёзная цена, так машину не продать.'});
+    if(car.round >= 4){
+      car.status='left';
+      car.chat.push({from:'them', text:'Извините, нашёл другого покупателя.'});
+    }
+  } else {
+    car.curAsk = Math.max(roundTo((offer*0.5+car.curAsk*0.5),500), car.minPrice);
+    if(car.round >= 6){
+      car.curAsk = car.minPrice;
+      car.chat.push({from:'them', text:`Хорошо, последняя цена — ${fmt(car.minPrice)}, дальше не торгуюсь.`});
+    } else {
+      car.chat.push({from:'them', text:`Могу отдать за ${fmt(car.curAsk)}, дешевле никак.`});
+    }
+  }
+  input.value='';
+  saveState(); render();
+}
+function finalizePurchase(car, price){
+  if(state.cash < price){
+    car.chat.push({from:'them', text:'Ждём оплату...'});
+    toast('Недостаточно денег на счету!');
+    return;
+  }
+  state.cash -= price;
+  addTx('expense', `Покупка: ${car.brand} ${car.model}`, price);
+  state.garage.push({
+    id:'g'+uid(), brand:car.brand, model:car.model, year:car.year, km:car.km,
+    cond:car.cond, tier:car.tier, emoji:car.emoji, buyPrice:price, spent:price, listing:null
+  });
+  car.status='sold';
+  state.stats.carsBought++;
+  toast(`Куплено: ${car.brand} ${car.model} за ${fmt(price)}`);
+}
+
+/* ============ GARAGE (SELL) ============ */
+function renderGarage(){
+  if(!state.garage.length){
+    return `
+    <div class="app">
+      <div class="app-header"><div class="back-btn" onclick="goHome()">←</div><div><div class="app-title">Мой гараж</div><div class="app-sub">Пусто</div></div></div>
+      <div class="app-body"><div class="empty-state"><div class="em">🏚️</div>В гараже пока нет машин.<br>Купите первую в «АвтоБарахолке».</div></div>
+    </div>`;
+  }
+  const cards = state.garage.map(c=>{
+    const tv = trueValue(c.tier, c.year, c.cond, c.km);
+    return `
+    <div class="garage-card">
+      <div class="garage-top">
+        <div class="car-thumb" style="background:${badgeColor(c.tier)}">${c.emoji}</div>
+        <div class="car-info">
+          <div class="car-name">${c.brand} ${c.model}</div>
+          <div class="car-meta">${c.year} г. · ${c.km.toLocaleString('ru-RU')} км · оценка ${fmt(tv)}</div>
+          <span class="car-cond cond-${c.cond}">${COND_LABEL[c.cond]}</span>
+        </div>
+      </div>
+      ${c.listing ? `<div class="listing-note">📌 Выставлена за ${fmt(c.listing.asking)} — <b>${c.listing.status==='left' ? 'покупатель ушёл' : 'идут переговоры'}</b></div>` : ''}
+      <div class="garage-actions">
+        ${c.cond < 5 ? `<button class="btn btn-ghost" onclick="repairCar('${c.id}')">🔧 Ремонт (${fmt(repairCost(c))})</button>` : ''}
+        <button class="btn btn-accent" onclick="openApp('sellcar:${c.id}')">${c.listing ? 'Открыть чат' : '💰 Продать'}</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `
+  <div class="app">
+    <div class="app-header"><div class="back-btn" onclick="goHome()">←</div><div><div class="app-title">Мой гараж</div><div class="app-sub">${state.garage.length} машин(ы)</div></div></div>
+    <div class="app-body">${cards}</div>
+  </div>`;
+}
+function repairCost(c){ return roundTo(trueValue(c.tier,c.year,c.cond,c.km)*0.09, 500); }
+function findGarageCar(id){ return state.garage.find(c=>c.id===id); }
+function repairCar(id){
+  const c = findGarageCar(id);
+  const cost = repairCost(c);
+  if(state.cash < cost){ toast('Недостаточно денег на ремонт'); return; }
+  state.cash -= cost; c.spent += cost; c.cond = Math.min(5, c.cond+1);
+  addTx('expense', `Ремонт: ${c.brand} ${c.model}`, cost);
+  toast('Машину подшаманили 🔧');
+  saveState(); render();
+}
+
+function generateBuyer(car){
+  const tv = trueValue(car.tier, car.year, car.cond, car.km);
+  const max = roundTo(tv*(0.85+Math.random()*0.35), 500);
+  const initOffer = roundTo(max*(0.55+Math.random()*0.2), 500);
+  return {
+    name: pick(SELLERS), max, lastOffer: initOffer, round:0, status:'active',
+    chat:[{from:'them', text:`Здравствуйте! Интересует ваш ${car.brand} ${car.model}. Отдадите за ${fmt(initOffer)}?`}]
+  };
+}
+function listCarForSale(id, askingPrice){
+  const c = findGarageCar(id);
+  const fee = 300;
+  if(state.cash < fee){ toast('Не хватает на размещение объявления'); return; }
+  state.cash -= fee;
+  addTx('expense', 'Размещение объявления', fee);
+  c.listing = { asking: askingPrice, buyer: generateBuyer(c) };
+  saveState(); render();
+}
+function renderSellDetail(id){
+  const c = findGarageCar(id);
+  if(!c) return `<div class="app"><div class="app-header"><div class="back-btn" onclick="openApp('garage')">←</div><div class="app-title">Гараж</div></div></div>`;
+  const tv = trueValue(c.tier,c.year,c.cond,c.km);
+  if(!c.listing){
+    return `
+    <div class="app">
+      <div class="app-header"><div class="back-btn" onclick="openApp('garage')">←</div><div><div class="app-title">${c.brand} ${c.model}</div><div class="app-sub">Выставить на продажу</div></div></div>
+      <div class="app-body">
+        <div class="detail-hero">
+          <div class="detail-thumb" style="background:${badgeColor(c.tier)}">${c.emoji}</div>
+          <div><div class="detail-name">${c.brand} ${c.model}, ${c.year}</div><div class="detail-meta">${c.km.toLocaleString('ru-RU')} км · <span class="car-cond cond-${c.cond}">${COND_LABEL[c.cond]}</span></div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="l">Вложено</div><div class="v mono">${fmt(c.spent)}</div></div>
+          <div class="stat-box"><div class="l">Оценка рынка</div><div class="v acc mono">${fmt(tv)}</div></div>
+        </div>
+        <div class="offer-row">
+          <input type="number" id="ask-input" placeholder="Цена объявления, ₽" value="${roundTo(tv*1.1,500)}">
+        </div>
+        <button class="btn btn-pos btn-full" onclick="publishListing('${c.id}')">Опубликовать (комиссия 300 ₽)</button>
+      </div>
+    </div>`;
+  }
+  const b = c.listing.buyer;
+  const chatMsgs = b.chat.map(m=>`<div class="msg ${m.from==='me'?'me':'them'}"><div class="who">${m.from==='me'?'Вы':b.name}</div>${m.text}</div>`).join('');
+  const left = b.status==='left';
+  return `
+  <div class="app">
+    <div class="app-header"><div class="back-btn" onclick="openApp('garage')">←</div><div><div class="app-title">${c.brand} ${c.model}</div><div class="app-sub">Ваша цена: ${fmt(c.listing.asking)}</div></div></div>
+    <div class="app-body">
+      <div class="stat-row">
+        <div class="stat-box"><div class="l">Вложено</div><div class="v mono">${fmt(c.spent)}</div></div>
+        <div class="stat-box"><div class="l">Последнее предложение</div><div class="v acc mono">${fmt(b.lastOffer)}</div></div>
+      </div>
+      ${left ? `<div class="closed-banner">😔 Покупатель ушёл — предложите цену снова, чтобы найти нового.</div>` : ''}
+      <div class="chat-box" id="chat-body">${chatMsgs}</div>
+      ${!left ? `
+      <div class="quick-offers">
+        <div class="qo" onclick="acceptBuyer('${c.id}')">✅ Принять ${fmt(b.lastOffer)}</div>
+      </div>
+      <div class="offer-row">
+        <input type="number" id="counter-input" placeholder="Ваша встречная цена, ₽">
+        <button class="btn btn-accent" onclick="counterBuyer('${c.id}')">Отправить</button>
+      </div>` : `<button class="btn btn-ghost btn-full" onclick="findNewBuyer('${c.id}')">🔄 Найти нового покупателя</button>`}
+    </div>
+  </div>`;
+}
+function publishListing(id){
+  const price = Number(document.getElementById('ask-input').value);
+  if(!price || price<=0){ toast('Укажите цену'); return; }
+  listCarForSale(id, price);
+}
+function acceptBuyer(id){
+  const c = findGarageCar(id);
+  completeSale(c, c.listing.buyer.lastOffer);
+}
+function counterBuyer(id){
+  const c = findGarageCar(id);
+  const b = c.listing.buyer;
+  const input = document.getElementById('counter-input');
+  const counter = Number(input.value);
+  if(!counter || counter<=0){ toast('Введите цену'); return; }
+  b.chat.push({from:'me', text:`Могу отдать за ${fmt(counter)}`});
+  b.round++;
+  if(counter <= b.max){
+    b.chat.push({from:'them', text:`Отлично, договорились за ${fmt(counter)}!`});
+    completeSale(c, counter);
+    return;
+  }
+  const overshoot = (counter-b.max)/b.max;
+  if(overshoot < 0.05){
+    b.chat.push({from:'them', text:`Ладно, беру за ${fmt(b.max)}, это мой потолок.`});
+    completeSale(c, b.max);
+    return;
+  }
+  if(b.round >= 5){
+    b.status='left';
+    b.chat.push({from:'them', text:'Простите, это дороже, чем я готов заплатить. Пойду посмотрю другие варианты.'});
+  } else {
+    b.lastOffer = roundTo((b.lastOffer + Math.min(counter, b.max*1.05))/2, 500);
+    b.chat.push({from:'them', text:`Могу поднять до ${fmt(b.lastOffer)}, дороже не потяну.`});
+  }
+  input.value='';
+  saveState(); render();
+}
+function findNewBuyer(id){
+  const c = findGarageCar(id);
+  c.listing.buyer = generateBuyer(c);
+  saveState(); render();
+}
+function completeSale(c, price){
+  state.cash += price;
+  addTx('income', `Продажа: ${c.brand} ${c.model}`, price);
+  const profit = price - c.spent;
+  state.stats.carsFlipped++;
+  state.stats.totalProfit += profit;
+  state.garage = state.garage.filter(x=>x.id!==c.id);
+  toast(profit>=0 ? `Продано! Прибыль ${fmt(profit)} 🎉` : `Продано с убытком ${fmt(Math.abs(profit))}`);
+  saveState();
+  openApp('garage');
+}
+
+/* ============ BANK ============ */
+function renderBank(){
+  const income = state.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expense = state.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  const txs = state.transactions.slice(0,40).map(t=>`
+    <div class="tx-item">
+      <div class="tx-left">
+        <div class="tx-ic ${t.type==='income'?'inc':'exp'}">${t.type==='income'?'↑':'↓'}</div>
+        <div><div class="tx-title">${t.title}</div><div class="tx-time">${t.time}</div></div>
+      </div>
+      <div class="tx-amt ${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':'−'}${fmt(t.amount)}</div>
+    </div>`).join('') || `<div class="empty-state"><div class="em">🧾</div>Операций пока нет.</div>`;
+  return `
+  <div class="app">
+    <div class="app-header"><div class="back-btn" onclick="goHome()">←</div><div><div class="app-title">Банк</div><div class="app-sub">Дебетовая карта · Перекуп</div></div></div>
+    <div class="app-body">
+      <div class="big-balance"><div class="lbl">Текущий баланс</div><div class="num">${fmt(state.cash)}</div></div>
+      <div class="io-bars">
+        <div class="io-box"><div class="l">Доходы</div><div class="v" style="color:var(--pos)">+${fmt(income)}</div></div>
+        <div class="io-box"><div class="l">Расходы</div><div class="v" style="color:var(--neg)">−${fmt(expense)}</div></div>
+      </div>
+      <div class="io-bars">
+        <div class="io-box"><div class="l">Машин куплено</div><div class="v">${state.stats.carsBought}</div></div>
+        <div class="io-box"><div class="l">Машин продано</div><div class="v">${state.stats.carsFlipped}</div></div>
+      </div>
+      <div class="io-box" style="margin-bottom:6px;"><div class="l">Чистая прибыль от перекупа</div><div class="v" style="color:${state.stats.totalProfit>=0?'var(--pos)':'var(--neg)'}">${state.stats.totalProfit>=0?'+':''}${fmt(state.stats.totalProfit)}</div></div>
+      <div class="section-lbl">История операций</div>
+      ${txs}
+    </div>
+  </div>`;
+}
+
+/* ============ SETTINGS ============ */
+function renderSettings(){
+  return `
+  <div class="app">
+    <div class="app-header"><div class="back-btn" onclick="goHome()">←</div><div class="app-title">Настройки</div></div>
+    <div class="app-body">
+      <div class="set-item">🚗 <b>ПЕРЕКУП</b> — симулятор автоперекупщика.<br>Покупайте авто дешевле рынка, торгуйтесь, при желании ремонтируйте — и продавайте дороже.</div>
+      <div class="set-item">Прогресс сохраняется автоматически на этом устройстве.</div>
+      <button class="btn danger-btn btn-full" onclick="resetGame()">Сбросить прогресс</button>
+    </div>
+  </div>`;
+}
+async function resetGame(){
+  if(!confirm('Точно сбросить весь прогресс?')) return;
+  state = defaultState();
+  ensureMarketFilled();
+  await saveState();
+  goHome();
+}
+
+/* ============ INIT ============ */
+loadState().then(()=>{ render(); setInterval(()=>{ if(currentScreen==='home') render(); }, 30000); });
+</script>
+</body>
+</html>
